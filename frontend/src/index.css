@@ -24,10 +24,14 @@ a:hover {
 
 body {
   margin: 0;
+  font-family: inherit;
+  background-color: var(--background-color);
+}
+
+#root {
   display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  flex-direction: column;
+  height: 100vh; /* Ensures the app spans the full viewport height */
 }
 
 h1 {
