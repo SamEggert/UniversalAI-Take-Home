@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 from app.routes.upload_document import upload_document
 from app.services.blob_service import get_blob_service_client
+from app.routes.autocomplete import autocomplete
 
 # Load environment variables
 load_dotenv()
@@ -26,3 +27,7 @@ blob_service_client = get_blob_service_client(connection_string)
 @app.route(route="UploadDocument", auth_level=func.AuthLevel.ANONYMOUS)
 def upload_document_route(req: func.HttpRequest) -> func.HttpResponse:
     return upload_document(req, blob_service_client, blob_container_name)
+
+@app.route(route="Autocomplete", auth_level=func.AuthLevel.ANONYMOUS)
+def autocomplete_route(req: func.HttpRequest) -> func.HttpResponse:
+    return autocomplete(req)
