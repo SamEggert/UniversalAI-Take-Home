@@ -8,7 +8,7 @@ A cloud-based document processing and query system using RAG (Retrieval-Augmente
 - [x] Create Azure Resource Group
 - [x] Create Azure Storage Account
 - [x] Create Azure Cosmos DB instance for vector storage
-- [ ] Set up Azure OpenAI Service
+- [x] Set up Azure OpenAI Service
 - [ ] Configure CORS settings for storage account
 - [ ] Generate SAS tokens for secure access
 
