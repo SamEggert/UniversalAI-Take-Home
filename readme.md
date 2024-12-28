@@ -43,8 +43,8 @@ s
 - [ ] Add response generation with source citations
 
 ### 3. Frontend Development (React)
-- [ ] Create new React project
-- [ ] Set up project structure
+- [x] Create new React project
+- [x] Set up project structure
 - [ ] Install required dependencies:
   - @azure/storage-blob
   - @azure/identity
@@ -90,20 +90,3 @@ s
 3. Configure environment variables
 4. Install dependencies for both frontend and backend
 5. Run the development servers
-
-## Environment Variables
-
-Backend (.env):
-```
-AZURE_STORAGE_CONNECTION_STRING=
-AZURE_COSMOS_CONNECTION_STRING=
-AZURE_OPENAI_API_KEY=
-AZURE_OPENAI_ENDPOINT=
-```
-
-Frontend (.env):
-```
-REACT_APP_STORAGE_ACCOUNT_NAME=
-REACT_APP_SAS_TOKEN=
-REACT_APP_API_ENDPOINT=
-```

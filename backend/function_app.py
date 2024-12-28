@@ -21,15 +21,28 @@ blob_container_name = "documents"  # Replace with your container name
 # Initialize BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
+# Common headers for CORS
+cors_headers = {
+    'Access-Control-Allow-Origin': 'http://localhost:5173',  # Replace with your frontend's origin
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+}
+
 @app.route(route="UploadDocument", auth_level=func.AuthLevel.ANONYMOUS)
 def UploadDocument(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Python HTTP trigger function processed a request.")
+
+    # Handle preflight (OPTIONS) requests for CORS
+    if req.method == 'OPTIONS':
+        logging.info("Handling preflight CORS request.")
+        return func.HttpResponse(status_code=200, headers=cors_headers)
 
     try:
         # Parse the uploaded file
         uploaded_file = req.files.get('file')
         if not uploaded_file:
-            return func.HttpResponse("No file provided in the request.", status_code=400)
+            logging.error("No file provided in the request.")
+            return func.HttpResponse("No file provided in the request.", status_code=400, headers=cors_headers)
 
         file_name = uploaded_file.filename
         file_content = uploaded_file.stream.read()
@@ -46,8 +59,8 @@ def UploadDocument(req: func.HttpRequest) -> func.HttpResponse:
         container_client.upload_blob(name=file_name, data=file_content, overwrite=True)
         logging.info(f"Uploaded file: {file_name} to container: {blob_container_name}")
 
-        return func.HttpResponse(f"File '{file_name}' uploaded successfully.", status_code=200)
+        return func.HttpResponse(f"File '{file_name}' uploaded successfully.", status_code=200, headers=cors_headers)
 
     except Exception as e:
         logging.error(f"Error processing the upload: {e}")
-        return func.HttpResponse("An error occurred during file upload.", status_code=500)
+        return func.HttpResponse("An error occurred during file upload.", status_code=500, headers=cors_headers)

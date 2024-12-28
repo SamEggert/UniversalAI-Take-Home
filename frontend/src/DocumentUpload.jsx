@@ -22,28 +22,22 @@ function DocumentUpload() {
     setUploadStatus('Uploading...');
 
     try {
-      // Create FormData to send the file
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      // Get the API endpoint from environment variables
       const apiEndpoint = import.meta.env.VITE_UPLOAD_API_ENDPOINT;
 
-      // Send the file to Azure Function
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         body: formData,
-        headers: {
-          'x-file-name': selectedFile.name,
-        }
       });
 
       if (!response.ok) {
         throw new Error('Upload failed');
       }
 
-      const result = await response.json();
-      setUploadStatus(`Upload successful! Processed ${result.chunk_count} chunks.`);
+      const result = await response.text(); // Assuming the backend returns a success message
+      setUploadStatus(result);
       setSelectedFile(null);
     } catch (error) {
       console.error('Upload error:', error);
