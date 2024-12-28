@@ -23,7 +23,6 @@ def connect_to_db():
 def insert_embedding(document_name: str, embedding: list, metadata: dict):
     """
     Inserts document embedding and metadata into the database.
-
     Args:
         document_name (str): Name of the document
         embedding (list): Vector embedding of the document
@@ -40,10 +39,11 @@ def insert_embedding(document_name: str, embedding: list, metadata: dict):
                 # Convert metadata to JSON using psycopg2's Json adapter
                 json_metadata = Json(metadata)
 
+                # Cast the embedding list to a vector
                 cur.execute(
                     """
                     INSERT INTO document_embeddings (document_name, embedding, metadata)
-                    VALUES (%s, %s, %s)
+                    VALUES (%s, %s::vector, %s)
                     """,
                     (str(document_name), embedding, json_metadata)
                 )
@@ -57,11 +57,9 @@ def insert_embedding(document_name: str, embedding: list, metadata: dict):
 def search_embeddings(query_embedding: list, top_k: int = 5):
     """
     Searches for similar embeddings in the database.
-
     Args:
         query_embedding (list): Vector embedding to search against
         top_k (int): Number of results to return
-
     Returns:
         list: List of tuples containing (document_name, metadata, embedding)
     """
@@ -71,7 +69,7 @@ def search_embeddings(query_embedding: list, top_k: int = 5):
                 """
                 SELECT document_name, metadata, embedding
                 FROM document_embeddings
-                ORDER BY embedding <-> %s
+                ORDER BY embedding <-> %s::vector
                 LIMIT %s
                 """,
                 (query_embedding, top_k)
