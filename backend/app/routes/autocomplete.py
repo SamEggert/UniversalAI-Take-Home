@@ -103,8 +103,25 @@ Question: {query}
 
 You are a helpful assistant. Your responses should:
 1. Be brief and answer exactly what was asked.
-2. Include relevant quotes from the context when necessary.
-3. If the context does not contain an answer, acknowledge the lack of information.
+2. Your response should include quotes from documents as necessary and must not be very long.
+3. Include relevant quotes from the documents when needed.
+4. Not add any information beyond what's provided above.
+5. Use quotations. You are directly quoting from the context.
+6. When referencing documents, use the format [Document: filename] before each quote.
+7. If the context does not include a direct answer to the question, acknowledge that the source doesn't have the answer.
+8. Cite sources in the following format [Document: name_of_document].
+9. Keep your answers short and cite multiple sources if needed.
+
+Example Document:
+[Document: sample.pdf] The system uses cloud storage and RAG pipelines. User interface includes document upload and chat.
+
+css
+Copy code
+
+Example Query: "What storage does the system use?"
+
+Expected Answer:
+The system uses "cloud storage" ([Document: sample.pdf]).
 """
 
         # Initialize LangChain OpenAI instance
@@ -112,21 +129,34 @@ You are a helpful assistant. Your responses should:
 
         # Generate response with context
         ai_message = llm.invoke(prompt)
-        response_text = ai_message.content if hasattr(ai_message, "content") else "Unable to generate response."
+
+        # Extract the content of the AIMessage
+        if hasattr(ai_message, "content"):
+            response_text = ai_message.content
+        else:
+            raise ValueError("Unexpected response format from LangChain.")
+
+        # Format response with sources
+        formatted_response = format_response(response_text, search_results)
 
         return func.HttpResponse(
-            json.dumps({
-                "text": response_text,
-                "sources": format_response(response_text, search_results).get("sources", [])
-            }),
+            json.dumps(formatted_response),
             status_code=200,
-            headers={**cors_headers, 'Content-Type': 'application/json'}
+            headers={
+                **cors_headers,
+                'Content-Type': 'application/json'
+            }
         )
 
     except Exception as e:
         logging.error(f"Error in autocomplete: {e}")
         return func.HttpResponse(
-            json.dumps({"error": f"An error occurred: {str(e)}"}),
+            json.dumps({
+                "error": f"An error occurred during processing: {str(e)}"
+            }),
             status_code=500,
-            headers={**cors_headers, 'Content-Type': 'application/json'}
+            headers={
+                **cors_headers,
+                'Content-Type': 'application/json'
+            }
         )

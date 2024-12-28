@@ -39,7 +39,7 @@ def prepare_metadata(file_name: str, mime_type: str, chunk: DocumentChunk, blob_
 
 
 class DocumentProcessor:
-    def __init__(self, max_chunk_size: int = 100):
+    def __init__(self, max_chunk_size: int = 900):
         self.max_chunk_size = max_chunk_size
         self.encoding = tiktoken.get_encoding("cl100k_base")
         self.client = OpenAI()
