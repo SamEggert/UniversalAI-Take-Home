@@ -1,27 +1,70 @@
+import os
+from dotenv import load_dotenv
 from psycopg2 import connect, sql
+from psycopg2.extras import Json
+import logging
+
+# Load environment variables from .env file
+load_dotenv()
 
 def connect_to_db():
+    """
+    Establishes connection to PostgreSQL database using environment variables.
+    Returns a database connection object.
+    """
     return connect(
-        dbname="your_db_name",
-        user="your_username",
-        password="your_password",
-        host="your_host",
-        port="your_port"
+        dbname=os.getenv('PGDATABASE'),
+        user=os.getenv('PGUSER'),
+        password=os.getenv('PGPASSWORD'),
+        host=os.getenv('PGHOST'),
+        port=os.getenv('PGPORT')
     )
 
-def insert_embedding(document_name, embedding, metadata):
-    with connect_to_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO document_embeddings (document_name, embedding, metadata)
-                VALUES (%s, %s, %s)
-                """,
-                (document_name, embedding, metadata)
-            )
-            conn.commit()
+def insert_embedding(document_name: str, embedding: list, metadata: dict):
+    """
+    Inserts document embedding and metadata into the database.
 
-def search_embeddings(query_embedding, top_k=5):
+    Args:
+        document_name (str): Name of the document
+        embedding (list): Vector embedding of the document
+        metadata (dict): Additional metadata about the document
+    """
+    try:
+        # Log the incoming data types
+        logging.info(f"Inserting embedding for {document_name}")
+        logging.info(f"Metadata type: {type(metadata)}")
+        logging.info(f"Embedding type: {type(embedding)}")
+
+        with connect_to_db() as conn:
+            with conn.cursor() as cur:
+                # Convert metadata to JSON using psycopg2's Json adapter
+                json_metadata = Json(metadata)
+
+                cur.execute(
+                    """
+                    INSERT INTO document_embeddings (document_name, embedding, metadata)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (str(document_name), embedding, json_metadata)
+                )
+                conn.commit()
+
+    except Exception as e:
+        logging.error(f"Error in insert_embedding: {str(e)}")
+        logging.error(f"Failed metadata: {metadata}")
+        raise
+
+def search_embeddings(query_embedding: list, top_k: int = 5):
+    """
+    Searches for similar embeddings in the database.
+
+    Args:
+        query_embedding (list): Vector embedding to search against
+        top_k (int): Number of results to return
+
+    Returns:
+        list: List of tuples containing (document_name, metadata, embedding)
+    """
     with connect_to_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

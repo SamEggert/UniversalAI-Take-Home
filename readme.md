@@ -5,12 +5,12 @@ A cloud-based document processing and query system using RAG (Retrieval-Augmente
 ## Step-by-Step Project Plan
 
 ### 1. Set Up LangChain Integration
-- [ ] Research and familiarize yourself with LangChain documentation.
-- [ ] Create a LangChain account (if required for their API or services).
-- [ ] Install the LangChain library in your backend environment using `pip install langchain`.
-- [ ] Explore LangChain's vector embeddings documentation to understand supported models and embeddings.
-- [ ] Implement vector embedding generation for uploaded documents.
-- [ ] Test embedding generation with sample documents.
+- [x] Research and familiarize yourself with LangChain documentation.
+- [x] Create a LangChain account (if required for their API or services).
+- [x] Install the LangChain library in your backend environment using `pip install langchain`.
+- [x] Explore LangChain's vector embeddings documentation to understand supported models and embeddings.
+- [x] Implement vector embedding generation for uploaded documents.
+- [x] Test embedding generation with sample documents.
 
 ### 2. Backend Development (Python)
 #### Document Handling
