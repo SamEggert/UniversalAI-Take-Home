@@ -90,6 +90,9 @@ You are a helpful assistant. Your responses should:
 5. Please use quotations. You are directly quoting from the context.
 6. When referencing documents, use the format [Document: filename] before each quote
 7. If the context does not include a direct answer to the question, acknowledge that the source doesn't have the answer.
+8. If you cite a source, you must do it in the following format [Document: name_of_document]
+9. Let me reemphasize, you want your answer to be short, and mostly pointing to the document as a citation.
+10. You can have multiple quotations in the same answer.
 
 Example Document:
 ```
@@ -100,7 +103,7 @@ The system uses cloud storage and RAG pipelines. User interface includes documen
 Example Query: "What storage does the system use?"
 
 Expected Answer:
-According to [Document: sample.pdf], the system uses "cloud storage"
+The system uses "cloud storage" ([Document: sample.pdf])
 """
 
         # Initialize LangChain OpenAI instance
