@@ -9,18 +9,14 @@ import json
 from typing import List, Dict, Any
 
 def format_context(results: List[tuple]) -> str:
-    """Format the search results into a context string including document names."""
     context_parts = []
     for _, metadata, _ in results:
-        if isinstance(metadata, dict) and 'content' in metadata:
-            # Get the document name from file_name, defaulting to 'Unknown Document' if not present
-            doc_name = metadata.get('file_name', 'Unknown Document')
-            # Format the content with document name as a header
-            formatted_content = f"[Document: {doc_name}]\n{metadata['content']}"
-            context_parts.append(formatted_content)
-
-    # Join all context parts with double newlines for separation
+        doc_name = metadata.get('file_name', 'Unknown Document')  # Fallback if missing
+        content = metadata.get('content', 'No content available')  # Fallback if missing
+        formatted_content = f"[Document: {doc_name}]\n{content}"
+        context_parts.append(formatted_content)
     return "\n\n".join(context_parts)
+
 
 def format_response(response_text: str, search_results: List[tuple]) -> Dict[str, Any]:
     """Format the response with sources and their blob URLs."""
@@ -62,10 +58,7 @@ def autocomplete(req: func.HttpRequest) -> func.HttpResponse:
             raise ValueError("OpenAI API key not found in environment variables.")
 
         # Initialize embedding model
-        embeddings_model = OpenAIEmbeddings(
-            api_key=api_key,
-            model="text-embedding-3-small"
-        )
+        embeddings_model = OpenAIEmbeddings(api_key=api_key)
 
         # Generate embedding for the query
         query_embedding = embeddings_model.embed_query(query)
@@ -73,7 +66,33 @@ def autocomplete(req: func.HttpRequest) -> func.HttpResponse:
         # Search for relevant documents
         search_results = search_embeddings(query_embedding)
 
-        # Format context from search results
+        if not search_results:
+            # No documents found; proceed with query-only prompt
+            logging.info("No relevant documents found. Proceeding with query-only prompt.")
+            prompt = f"""You are a helpful assistant. Answer the following question as best as you can without additional context:
+
+Question: {query}
+
+If you cannot provide a confident answer, acknowledge the lack of information.
+"""
+
+            # Initialize LLM
+            llm = ChatOpenAI(api_key=api_key, temperature=0.5)
+
+            # Generate response
+            ai_message = llm.invoke(prompt)
+            response_text = ai_message.content if hasattr(ai_message, "content") else "Unable to generate response."
+
+            return func.HttpResponse(
+                json.dumps({
+                    "text": response_text,
+                    "sources": []  # No sources available
+                }),
+                status_code=200,
+                headers={**cors_headers, 'Content-Type': 'application/json'}
+            )
+
+        # Documents found; format context
         context = format_context(search_results)
 
         # Create prompt with context
@@ -83,27 +102,9 @@ def autocomplete(req: func.HttpRequest) -> func.HttpResponse:
 Question: {query}
 
 You are a helpful assistant. Your responses should:
-1. Be brief and answer exactly what was asked
-2. Your response should include quotes from documents as necessary and must not be very long
-3. Include relevant quotes from the documents when needed
-4. Not add any information beyond what's provided above
-5. Please use quotations. You are directly quoting from the context.
-6. When referencing documents, use the format [Document: filename] before each quote
-7. If the context does not include a direct answer to the question, acknowledge that the source doesn't have the answer.
-8. If you cite a source, you must do it in the following format [Document: name_of_document]
-9. Let me reemphasize, you want your answer to be short, and mostly pointing to the document as a citation.
-10. You can have multiple quotations in the same answer.
-
-Example Document:
-```
-[Document: sample.pdf]
-The system uses cloud storage and RAG pipelines. User interface includes document upload and chat.
-```
-
-Example Query: "What storage does the system use?"
-
-Expected Answer:
-The system uses "cloud storage" ([Document: sample.pdf])
+1. Be brief and answer exactly what was asked.
+2. Include relevant quotes from the context when necessary.
+3. If the context does not contain an answer, acknowledge the lack of information.
 """
 
         # Initialize LangChain OpenAI instance
@@ -111,45 +112,21 @@ The system uses "cloud storage" ([Document: sample.pdf])
 
         # Generate response with context
         ai_message = llm.invoke(prompt)
-
-        # Extract the content of the AIMessage
-        if hasattr(ai_message, "content"):
-            response_text = ai_message.content
-        else:
-            raise ValueError("Unexpected response format from LangChain.")
-
-        # Format response with sources
-        sources = []
-        for _, metadata, _ in search_results:
-            if isinstance(metadata, dict):
-                sources.append({
-                    "fileName": metadata.get('file_name', 'Unknown Document'),
-                    "blobUrl": metadata.get('blob_url', '')
-                })
-
-        formatted_response = {
-            "text": response_text,
-            "sources": sources
-        }
+        response_text = ai_message.content if hasattr(ai_message, "content") else "Unable to generate response."
 
         return func.HttpResponse(
-            json.dumps(formatted_response),
+            json.dumps({
+                "text": response_text,
+                "sources": format_response(response_text, search_results).get("sources", [])
+            }),
             status_code=200,
-            headers={
-                **cors_headers,
-                'Content-Type': 'application/json'
-            }
+            headers={**cors_headers, 'Content-Type': 'application/json'}
         )
 
     except Exception as e:
         logging.error(f"Error in autocomplete: {e}")
         return func.HttpResponse(
-            json.dumps({
-                "error": f"An error occurred during processing: {str(e)}"
-            }),
+            json.dumps({"error": f"An error occurred: {str(e)}"}),
             status_code=500,
-            headers={
-                **cors_headers,
-                'Content-Type': 'application/json'
-            }
+            headers={**cors_headers, 'Content-Type': 'application/json'}
         )

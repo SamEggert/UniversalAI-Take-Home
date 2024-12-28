@@ -24,21 +24,19 @@ class DocumentChunk:
     metadata: Dict[str, Any]
 
 def prepare_metadata(file_name: str, mime_type: str, chunk: DocumentChunk, blob_url: str) -> dict:
-    """
-    Prepare metadata dictionary with explicit type conversion to ensure JSON serialization.
-    Now includes full content instead of just preview.
-    """
     return {
-        "file_name": str(file_name),
-        "file_type": str(mime_type),
+        "file_name": file_name or "Unknown Document",
+        "file_type": mime_type,
         "chunk_metadata": {
-            "chunk_size": int(chunk.metadata.get("chunk_size", 0))
+            "chunk_size": chunk.metadata.get("chunk_size", 0)
         },
-        "start_idx": int(chunk.start_idx),
-        "end_idx": int(chunk.end_idx),
-        "blob_url": str(blob_url),
-        "content": str(chunk.content)  # Store full content instead of preview
+        "start_idx": chunk.start_idx,
+        "end_idx": chunk.end_idx,
+        "blob_url": blob_url,
+        "content": chunk.content
     }
+
+
 
 class DocumentProcessor:
     def __init__(self, max_chunk_size: int = 100):
@@ -145,118 +143,119 @@ class DocumentProcessor:
         return embeddings
 
 def upload_document(req: func.HttpRequest, blob_service_client, blob_container_name) -> func.HttpResponse:
-   # Handle CORS preflight
-   if req.method == 'OPTIONS':
-       return func.HttpResponse(status_code=200, headers=cors_headers)
+    # Handle CORS preflight
+    if req.method == 'OPTIONS':
+        return func.HttpResponse(status_code=200, headers=cors_headers)
 
-   try:
-       # Initialize document processor
-       processor = DocumentProcessor()
+    try:
+        # Initialize document processor
+        processor = DocumentProcessor()
 
-       # Get file content
-       file = req.files.get('file')
-       if not file:
-           return func.HttpResponse(
-               "No file provided",
-               status_code=400,
-               headers=cors_headers
-           )
+        # Get file content
+        file = req.files.get('file')
+        if not file:
+            return func.HttpResponse(
+                "No file provided",
+                status_code=400,
+                headers=cors_headers
+            )
 
-       file_content = file.read()
-       file_name = file.filename
+        file_content = file.read()
+        file_name = file.filename
 
-       # Determine file type
-       mime_type, _ = mimetypes.guess_type(file_name)
-       if not mime_type:
-           mime_type = 'application/octet-stream'
+        # Determine file type
+        mime_type, _ = mimetypes.guess_type(file_name)
+        if not mime_type:
+            mime_type = 'application/octet-stream'
 
-       logging.info(f"Processing file {file_name} of type {mime_type}")
+        logging.info(f"Processing file {file_name} of type {mime_type}")
 
-       # Save to blob storage with proper content settings
-       container_client = blob_service_client.get_container_client(blob_container_name)
-       blob_url = upload_to_blob(container_client, file_name, file_content, mime_type)
+        # Save to blob storage with proper content settings
+        container_client = blob_service_client.get_container_client(blob_container_name)
+        blob_url = upload_to_blob(container_client, file_name, file_content, mime_type)
 
-       try:
-           # Extract text content based on file type
-           text_content = processor.extract_text_from_file(file_content, mime_type)
-       except Exception as e:
-           logging.error(f"Text extraction error: {str(e)}")
-           return func.HttpResponse(
-               f"Error extracting text from file: {str(e)}",
-               status_code=400,
-               headers=cors_headers
-           )
+        try:
+            # Extract text content based on file type
+            text_content = processor.extract_text_from_file(file_content, mime_type)
+        except Exception as e:
+            logging.error(f"Text extraction error: {str(e)}")
+            return func.HttpResponse(
+                f"Error extracting text from file: {str(e)}",
+                status_code=400,
+                headers=cors_headers
+            )
 
-       if not text_content.strip():
-           return func.HttpResponse(
-               "No text content could be extracted from the file",
-               status_code=400,
-               headers=cors_headers
-           )
+        if not text_content.strip():
+            return func.HttpResponse(
+                "No text content could be extracted from the file",
+                status_code=400,
+                headers=cors_headers
+            )
 
-       # Process document in chunks
-       chunks = processor.chunk_document(text_content)
-       logging.info(f"Created {len(chunks)} chunks from document")
+        # Process document in chunks
+        chunks = processor.chunk_document(text_content)
+        logging.info(f"Created {len(chunks)} chunks from document")
 
-       # Generate embeddings
-       embeddings = processor.generate_embeddings(chunks)
-       logging.info(f"Generated {len(embeddings)} embeddings")
+        # Generate embeddings
+        embeddings = processor.generate_embeddings(chunks)
+        logging.info(f"Generated {len(embeddings)} embeddings")
 
-       # Store chunks and embeddings
-       failed_chunks = []
-       with ThreadPoolExecutor() as executor:
-           futures = []
-           for chunk_idx, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-               try:
-                   # Prepare metadata with explicit type conversion
-                   metadata = prepare_metadata(
-                       file_name=file_name,
-                       mime_type=mime_type,
-                       chunk=chunk,
-                       blob_url=blob_url
-                   )
+        # Store chunks and embeddings
+        failed_chunks = []
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for chunk_idx, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                try:
+                    # Prepare metadata with explicit type conversion
+                    metadata = prepare_metadata(
+                        file_name=file_name,
+                        mime_type=mime_type,
+                        chunk=chunk,
+                        blob_url=blob_url
+                    )
+                    logging.debug(f"Prepared metadata: {metadata}")
 
-                   # Verify metadata is JSON serializable
-                   json.dumps(metadata)
+                    # Verify metadata is JSON serializable
+                    json.dumps(metadata)
 
-                   futures.append(
-                       executor.submit(
-                           insert_embedding,
-                           document_name=file_name,
-                           embedding=embedding.tolist(),
-                           metadata=metadata
-                       )
-                   )
-               except Exception as e:
-                   logging.error(f"Error preparing chunk {chunk_idx}: {str(e)}")
-                   failed_chunks.append(chunk_idx)
+                    futures.append(
+                        executor.submit(
+                            insert_embedding,
+                            document_name=file_name,
+                            embedding=embedding.tolist(),
+                            metadata=metadata
+                        )
+                    )
+                except Exception as e:
+                    logging.error(f"Error preparing chunk {chunk_idx}: {str(e)}")
+                    failed_chunks.append(chunk_idx)
 
-           # Wait for all database operations to complete
-           for idx, future in enumerate(futures):
-               try:
-                   future.result()
-               except Exception as e:
-                   logging.error(f"Error inserting chunk {idx}: {str(e)}")
-                   failed_chunks.append(idx)
+            # Wait for all database operations to complete
+            for idx, future in enumerate(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logging.error(f"Error inserting chunk {idx}: {str(e)}")
+                    failed_chunks.append(idx)
 
-       if failed_chunks:
-           logging.error(f"Failed to process chunks: {failed_chunks}")
-           return func.HttpResponse(
-               f"Document processed with {len(failed_chunks)} failed chunks",
-               status_code=207,
-               headers=cors_headers
-           )
+        if failed_chunks:
+            logging.error(f"Failed to process chunks: {failed_chunks}")
+            return func.HttpResponse(
+                f"Document processed with {len(failed_chunks)} failed chunks",
+                status_code=207,
+                headers=cors_headers
+            )
 
-       return func.HttpResponse(
-           f"Document {file_name} processed successfully",
-           status_code=200,
-           headers=cors_headers
-       )
+        return func.HttpResponse(
+            f"Document {file_name} processed successfully",
+            status_code=200,
+            headers=cors_headers
+        )
 
-   except Exception as e:
-       logging.error(f"Error processing document: {str(e)}")
-       return func.HttpResponse(
-           f"Error processing document: {str(e)}",
-           status_code=500,
-           headers=cors_headers
-       )
+    except Exception as e:
+        logging.error(f"Error processing document: {str(e)}")
+        return func.HttpResponse(
+            f"Error processing document: {str(e)}",
+            status_code=500,
+            headers=cors_headers
+        )

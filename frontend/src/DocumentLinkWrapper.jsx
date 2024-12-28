@@ -39,6 +39,8 @@ const DocumentLink = ({ fileName, blobUrl }) => {
 
 // This component will wrap the chat response and parse document references
 const DocumentLinkWrapper = ({ response }) => {
+  console.log('Response sources:', response.sources);
+
   // Regular expression to match document references in the format [Document: filename]
   const DOC_PATTERN = /\[Document: ([^\]]+)\]/g;
 
