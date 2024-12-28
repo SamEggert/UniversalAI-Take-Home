@@ -9,14 +9,33 @@ import json
 from typing import List, Dict, Any
 
 def format_context(results: List[tuple]) -> str:
-    """Format the search results into a context string using full content."""
+    """Format the search results into a context string including document names."""
     context_parts = []
     for _, metadata, _ in results:
-        # Extract the full content from metadata
         if isinstance(metadata, dict) and 'content' in metadata:
-            context_parts.append(metadata['content'])
+            # Get the document name from file_name, defaulting to 'Unknown Document' if not present
+            doc_name = metadata.get('file_name', 'Unknown Document')
+            # Format the content with document name as a header
+            formatted_content = f"[Document: {doc_name}]\n{metadata['content']}"
+            context_parts.append(formatted_content)
 
+    # Join all context parts with double newlines for separation
     return "\n\n".join(context_parts)
+
+def format_response(response_text: str, search_results: List[tuple]) -> Dict[str, Any]:
+    """Format the response with sources and their blob URLs."""
+    sources = []
+    for _, metadata, _ in search_results:
+        if isinstance(metadata, dict):
+            sources.append({
+                "fileName": metadata.get('file_name', 'Unknown Document'),
+                "blobUrl": metadata.get('blob_url', '')
+            })
+
+    return {
+        "text": response_text,
+        "sources": sources
+    }
 
 def autocomplete(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Processing autocomplete request with RAG.")
@@ -32,9 +51,9 @@ def autocomplete(req: func.HttpRequest) -> func.HttpResponse:
 
         if not query:
             return func.HttpResponse(
-                "Query parameter is missing.",
+                json.dumps({"error": "Query parameter is missing."}),
                 status_code=400,
-                headers=cors_headers
+                headers={**cors_headers, 'Content-Type': 'application/json'}
             )
 
         # Fetch API key from environment variables
@@ -43,26 +62,46 @@ def autocomplete(req: func.HttpRequest) -> func.HttpResponse:
             raise ValueError("OpenAI API key not found in environment variables.")
 
         # Initialize embedding model
-        embeddings_model = OpenAIEmbeddings(api_key=api_key)
+        embeddings_model = OpenAIEmbeddings(
+            api_key=api_key,
+            model="text-embedding-3-small"
+        )
 
         # Generate embedding for the query
         query_embedding = embeddings_model.embed_query(query)
 
         # Search for relevant documents
-        search_results = search_embeddings(query_embedding, top_k=3)
+        search_results = search_embeddings(query_embedding)
 
         # Format context from search results
         context = format_context(search_results)
 
         # Create prompt with context
-        prompt = f"""Answer the following question using the provided context. If the context doesn't contain relevant information, say so.
-
-Context:
+        prompt = f"""Context:
 {context}
 
 Question: {query}
 
-Please provide a clear and concise answer, citing specific information from the context when possible."""
+You are a helpful assistant. Your responses should:
+1. Be brief and answer exactly what was asked
+2. Your response should include quotes from documents as necessary and must not be very long
+3. Include relevant quotes from the documents when needed
+4. Not add any information beyond what's provided above
+5. Please use quotations. You are directly quoting from the context.
+6. When referencing documents, use the format [Document: filename] before each quote
+7. If the context does not include a direct answer to the question, acknowledge that the source doesn't have the answer.
+
+Example Document:
+```
+[Document: sample.pdf]
+The system uses cloud storage and RAG pipelines. User interface includes document upload and chat.
+```
+
+Example Query: "What storage does the system use?"
+
+Expected Answer:
+According to [Document: sample.pdf], the system uses "cloud storage"
+"""
 
         # Initialize LangChain OpenAI instance
         llm = ChatOpenAI(api_key=api_key, temperature=0.5)
@@ -76,16 +115,38 @@ Please provide a clear and concise answer, citing specific information from the 
         else:
             raise ValueError("Unexpected response format from LangChain.")
 
+        # Format response with sources
+        sources = []
+        for _, metadata, _ in search_results:
+            if isinstance(metadata, dict):
+                sources.append({
+                    "fileName": metadata.get('file_name', 'Unknown Document'),
+                    "blobUrl": metadata.get('blob_url', '')
+                })
+
+        formatted_response = {
+            "text": response_text,
+            "sources": sources
+        }
+
         return func.HttpResponse(
-            response_text,
+            json.dumps(formatted_response),
             status_code=200,
-            headers=cors_headers
+            headers={
+                **cors_headers,
+                'Content-Type': 'application/json'
+            }
         )
 
     except Exception as e:
         logging.error(f"Error in autocomplete: {e}")
         return func.HttpResponse(
-            f"An error occurred during processing: {str(e)}",
+            json.dumps({
+                "error": f"An error occurred during processing: {str(e)}"
+            }),
             status_code=500,
-            headers=cors_headers
+            headers={
+                **cors_headers,
+                'Content-Type': 'application/json'
+            }
         )

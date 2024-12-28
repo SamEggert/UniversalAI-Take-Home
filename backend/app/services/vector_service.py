@@ -56,29 +56,42 @@ def insert_embedding(document_name: str, embedding: list, metadata: dict):
 
 def search_embeddings(query_embedding: list, top_k: int = 5):
     """
-    Searches for similar embeddings in the database and prints relevant document names.
+    Searches for similar embeddings in the database and prints relevant document names with distances.
     Args:
         query_embedding (list): Vector embedding to search against
         top_k (int): Number of results to return
     Returns:
         list: List of tuples containing (document_name, metadata, embedding)
     """
-    with connect_to_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT document_name, metadata, embedding
-                FROM document_embeddings
-                ORDER BY embedding <-> %s::vector
-                LIMIT %s
-                """,
-                (query_embedding, top_k)
-            )
-            results = cur.fetchall()
+    try:
+        with connect_to_db() as conn:
+            with conn.cursor() as cur:
+                logging.info(f"Searching for top {top_k} similar embeddings")
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        document_name,
+                        metadata,
+                        embedding,
+                        embedding <-> %s::vector as distance
+                    FROM document_embeddings
+                    ORDER BY embedding <-> %s::vector
+                    LIMIT %s
+                    """,
+                    (query_embedding, query_embedding, top_k)
+                )
+                results = cur.fetchall()
 
-            # Print the relevant document names
-            print("\nMost relevant documents:")
-            for i, (doc_name, _, _) in enumerate(results, 1):
-                print(f"{i}. {doc_name}")
+                # Log and print the relevant document names with distances
+                logging.info(f"Found {len(results)} matching documents")
+                print("\nMost relevant documents:")
+                for i, (doc_id, doc_name, metadata, embedding, distance) in enumerate(results, 1):
+                    print(f"{i}. [ID: {doc_id}] {doc_name:<40} Distance: {distance:.4f}")
+                    logging.debug(f"Matched document: {doc_name} (ID: {doc_id}) with distance: {distance:.4f}")
 
-            return results
+                # Return only the original expected fields
+                return [(doc_name, metadata, embedding) for _, doc_name, metadata, embedding, _ in results]
+    except Exception as e:
+        logging.error(f"Error in search_embeddings: {str(e)}")
+        raise
