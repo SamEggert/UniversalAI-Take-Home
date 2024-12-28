@@ -27,7 +27,7 @@ s
   - unstructured
 
 #### Document Processing Pipeline
-- [ ] Implement document upload handler
+- [x] Implement document upload handler
 - [ ] Create document parsing logic
 - [ ] Set up vector embeddings generation
 - [ ] Implement vector storage in Cosmos DB
