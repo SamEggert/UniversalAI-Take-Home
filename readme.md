@@ -14,9 +14,9 @@ A cloud-based document processing and query system using RAG (Retrieval-Augmente
 
 s
 ### 2. Backend Development (Python)
-- [ ] Initialize Azure Functions project structure
-- [ ] Set up Python virtual environment
-- [ ] Install required dependencies:
+- [x] Initialize Azure Functions project structure
+- [x] Set up Python virtual environment
+- [x] Install required dependencies:
   - langchain
   - azure-functions
   - azure-storage-blob
