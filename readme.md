@@ -12,6 +12,7 @@ A cloud-based document processing and query system using RAG (Retrieval-Augmente
 - [ ] Configure CORS settings for storage account
 - [ ] Generate SAS tokens for secure access
 
+s
 ### 2. Backend Development (Python)
 - [ ] Initialize Azure Functions project structure
 - [ ] Set up Python virtual environment
