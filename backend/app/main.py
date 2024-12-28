@@ -5,6 +5,7 @@ import os
 from app.routes.upload_document import upload_document
 from app.services.blob_service import get_blob_service_client
 from app.routes.autocomplete import autocomplete
+from app.routes.clear_data import clear_data
 
 # Load environment variables
 load_dotenv()
@@ -31,3 +32,7 @@ def upload_document_route(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="Autocomplete", auth_level=func.AuthLevel.ANONYMOUS)
 def autocomplete_route(req: func.HttpRequest) -> func.HttpResponse:
     return autocomplete(req)
+
+@app.route(route="ClearData", auth_level=func.AuthLevel.ANONYMOUS)
+def clear_data_route(req: func.HttpRequest) -> func.HttpResponse:
+    return clear_data(req)

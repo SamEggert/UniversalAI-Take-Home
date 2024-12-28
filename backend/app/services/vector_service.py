@@ -56,7 +56,7 @@ def insert_embedding(document_name: str, embedding: list, metadata: dict):
 
 def search_embeddings(query_embedding: list, top_k: int = 5):
     """
-    Searches for similar embeddings in the database.
+    Searches for similar embeddings in the database and prints relevant document names.
     Args:
         query_embedding (list): Vector embedding to search against
         top_k (int): Number of results to return
@@ -74,4 +74,11 @@ def search_embeddings(query_embedding: list, top_k: int = 5):
                 """,
                 (query_embedding, top_k)
             )
-            return cur.fetchall()
+            results = cur.fetchall()
+
+            # Print the relevant document names
+            print("\nMost relevant documents:")
+            for i, (doc_name, _, _) in enumerate(results, 1):
+                print(f"{i}. {doc_name}")
+
+            return results

@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import DocumentUpload from './DocumentUpload';
 import Autocomplete from './Autocomplete';
+import ClearDataDialog from './ClearDataDialog';
 import './App.css';
 
 function App() {
@@ -9,13 +10,14 @@ function App() {
       <div className="flex flex-col min-h-screen">
         {/* Fixed Navigation Bar */}
         <nav className="fixed top-0 left-0 w-full bg-white shadow-md z-10">
-          <div className="flex justify-center p-4">
+          <div className="flex justify-center items-center p-4">
             <Link to="/chat" className="mx-4 text-lg text-gray-800 hover:underline">
               Chat
             </Link>
             <Link to="/upload" className="mx-4 text-lg text-gray-800 hover:underline">
               Upload Documents
             </Link>
+            <ClearDataDialog />
           </div>
         </nav>
 

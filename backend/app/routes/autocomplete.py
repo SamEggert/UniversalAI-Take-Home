@@ -9,12 +9,12 @@ import json
 from typing import List, Dict, Any
 
 def format_context(results: List[tuple]) -> str:
-    """Format the search results into a context string."""
+    """Format the search results into a context string using full content."""
     context_parts = []
     for _, metadata, _ in results:
-        # Extract the content preview from metadata
-        if isinstance(metadata, dict) and 'content_preview' in metadata:
-            context_parts.append(metadata['content_preview'])
+        # Extract the full content from metadata
+        if isinstance(metadata, dict) and 'content' in metadata:
+            context_parts.append(metadata['content'])
 
     return "\n\n".join(context_parts)
 
